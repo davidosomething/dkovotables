@@ -44,12 +44,30 @@ module.exports = function (grunt) {
           'assets/css/admin.css': 'assets/sass/admin.scss'
         }
       }
+    },
+
+    watch: {
+      scripts: {
+        files: ['assets/js/*.js'],
+        tasks: ['jshint']
+      },
+      sass: {
+        files: ['assets/sass/**/*.*'],
+        tasks: ['sass:prod']
+      },
+      markdown: {
+        files: ['markdown/*'],
+        tasks: ['markdown']
+      }
     }
   });
 
   grunt.loadNpmTasks('grunt-contrib-jshint');
   grunt.loadNpmTasks('grunt-contrib-uglify');
   grunt.loadNpmTasks('grunt-contrib-sass');
+  grunt.loadNpmTasks('grunt-contrib-watch');
 
-  grunt.registerTask('default', ['jshint', 'sass']);
+  grunt.registerTask('test', ['jshint']);
+  grunt.registerTask('compile', ['sass:prod']);
+  grunt.registerTask('default', ['watch']);
 };

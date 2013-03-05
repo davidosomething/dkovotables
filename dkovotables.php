@@ -4,7 +4,7 @@
  * Plugin URI:  http://github.com/davidosomething/dkovotables
  * Description: Voting framework for WordPress. Lets you create objects to vote on, quizzes, polls, posts, etc.
  * Author:      davidosomething
- * Version:     0.1.0
+ * Version:     0.1.1
  * Author URI:  http://www.davidosomething.com/
  */
 
@@ -14,7 +14,7 @@ define('DKOVOTABLES_PLUGIN_FILE', __FILE__);
 class DKOVotables
 {
 
-  const version = '0.1.0';
+  const version = '0.1.1';
 
   public $default_options = array(
     'version' => '0.0.0',
@@ -24,13 +24,18 @@ class DKOVotables
 
   public function __construct() {
     $this->slug = strtolower(basename(DKOVOTABLES_PLUGIN_FILE, '.php'));
-    $this->admin_page = $this->slug . '/views/admin.php';
+    $this->screen_id = $this->slug . '/views/admin';
+    $this->admin_page = $this->screen_id . '.php';
 
     $this->_setup_options();
-    $this->ensure_version();
 
-    register_activation_hook( DKOVOTABLES_PLUGIN_FILE, array( &$this, 'ensure_version' ) );
-    add_action('admin_menu', array(&$this, 'add_root_menu'));
+    // Make sure db is created/up-to-date
+    register_activation_hook(DKOVOTABLES_PLUGIN_FILE, array($this, 'ensure_version'));
+    add_action('plugins_loaded', array($this, 'ensure_version'));
+
+    // Add admin page and help
+    add_action('admin_menu', array($this, 'add_root_menu'));
+    add_filter('contextual_help', array($this, 'plugin_help'), 10, 3);
   }
 
   /**
@@ -62,11 +67,50 @@ class DKOVotables
 
   /**
    * _update_database
-   * Update database tables associated to this plugin.
+   * Create/update database tables associated to this plugin.
    *
    * @return void
    */
   private function _update_database() {
+    global $wpdb;
+    require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+
+    // Create/update the votes table
+    $votes_table_name = $wpdb->prefix . 'dkovotable_votes';
+    $sql = "CREATE TABLE $votes_table_name (
+      id          mediumint(9)                                NOT NULL AUTO_INCREMENT,
+      votes       mediumint(9)  DEFAULT 0                     NOT NULL,
+      group_id    mediumint(9)  DEFAULT 0                     NOT NULL,
+      description text                                        NOT NULL,
+      create_date datetime      DEFAULT '0000-00-00 00:00:00' NOT NULL,
+      UNIQUE KEY id (id)
+    );";
+    dbDelta($sql);
+
+    // Create/update the groups table
+    $groups_table_name = $wpdb->prefix . 'dkovotable_groups';
+    $sql = "CREATE TABLE $groups_table_name (
+      id          mediumint(9)                                NOT NULL AUTO_INCREMENT,
+      group_name  varchar(255)  DEFAULT ''                    NOT NULL,
+      description text                                        NOT NULL,
+      create_date datetime      DEFAULT '0000-00-00 00:00:00' NOT NULL,
+      UNIQUE KEY id (id)
+    );";
+    dbDelta($sql);
+
+    // Create/update the votables-groups relationship table
+    $votables_to_groups_table_name = $wpdb->prefix . 'dkovotable_votables_to_groups';
+    $sql = "CREATE TABLE $votables_to_groups_table_name (
+      id          mediumint(9)                                NOT NULL AUTO_INCREMENT,
+      votable_id  mediumint(9)  DEFAULT 0                     NOT NULL,
+      group_id    mediumint(9)  DEFAULT 0                     NOT NULL,
+      create_date datetime      DEFAULT '0000-00-00 00:00:00' NOT NULL,
+      UNIQUE KEY id (id)
+    );";
+    dbDelta($sql);
+
+    $this->options['version'] = self::version;
+    update_option('dkovotables_options', $this->options);
   }
 
   /**
@@ -84,7 +128,7 @@ class DKOVotables
       'http://s.gravatar.com/avatar/dcf949116994998753bd171a74f20fe9?s=16',
       100.001
     );
-    add_action('admin_print_styles-' . $this->admin_page, array(&$this, 'admin_enqueue'));
+    add_action('admin_print_styles-' . $this->admin_page, array($this, 'admin_enqueue'));
   }
 
   /**
@@ -100,6 +144,25 @@ class DKOVotables
     );
   }
 
+  /**
+   * plugin_help
+   * Sets $contextual_help value if on the Votables admin screen.
+   *
+   * @param string $contextual_help
+   * @param string $screen_id
+   * @param mixed $screen
+   * @return void
+   */
+  public function plugin_help($contextual_help, $screen_id, $screen) {
+    if ($screen_id !== $this->screen_id) {
+      return;
+    }
+    ob_start();
+    include plugin_dir_path(__FILE__) . 'views/contextual_help.php';
+    $contextual_help = ob_get_contents();
+    ob_end_clean();
+    return $contextual_help;
+  }
 
 }
 $dkovotables = new DKOVotables();

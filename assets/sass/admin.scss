@@ -1,3 +1,23 @@
-.dkovotables-views-admin-php .icon32 {
-  background-image: url(http://s.gravatar.com/avatar/dcf949116994998753bd171a74f20fe9?s=32);
+.dkovotables-views-admin-php {
+  .icon32 {
+    background-image: url(http://s.gravatar.com/avatar/dcf949116994998753bd171a74f20fe9?s=32);
+  }
+
+  .container {
+    clear: both;
+    overflow: hidden;
+  }
+
+  .main {
+    float: left;
+    width: 66%;
+  }
+
+  .sidebar {
+    float: left;
+    width: 33%;
+  }
+
+
 }
+
