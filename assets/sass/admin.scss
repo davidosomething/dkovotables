@@ -1,4 +1,4 @@
-.dkovotables-views-admin-php {
+.toplevel_page_DKOVotables {
   .icon32 {
     background-image: url(http://s.gravatar.com/avatar/dcf949116994998753bd171a74f20fe9?s=32);
   }
@@ -10,12 +10,13 @@
 
   .main {
     float: left;
-    width: 66%;
+    width: 60%;
   }
 
   .sidebar {
     float: left;
-    width: 33%;
+    margin-left: 4%;
+    width: 35%;
   }
 
 

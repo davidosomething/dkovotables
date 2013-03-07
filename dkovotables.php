@@ -4,33 +4,38 @@
  * Plugin URI:  http://github.com/davidosomething/dkovotables
  * Description: Voting framework for WordPress. Lets you create objects to vote on, quizzes, polls, posts, etc.
  * Author:      davidosomething
- * Version:     0.1.1
+ * Version:     0.1.5
  * Author URI:  http://www.davidosomething.com/
  */
-
-define('DKOVOTABLES_BASEPATH', __DIR__);
-define('DKOVOTABLES_PLUGIN_FILE', __FILE__);
 
 class DKOVotables
 {
 
-  const version = '0.1.1';
+  const version = '0.1.5';
+  const slug = 'DKOVotables';
+  const basepath = __DIR__;
 
   public $default_options = array(
     'version' => '0.0.0',
   );
-  private $slug;
-  private $admin_page;
+  private $screen_id;
+  public $votes_table_name;
+  public $groups_table_name;
+  public $votables_table_name;
 
   public function __construct() {
-    $this->slug = strtolower(basename(DKOVOTABLES_PLUGIN_FILE, '.php'));
-    $this->screen_id = $this->slug . '/views/admin';
-    $this->admin_page = $this->screen_id . '.php';
+    global $wpdb;
+
+    // initialize vars
+    $this->screen_id = 'toplevel_page_' . self::slug;
+    $this->votes_table_name = $wpdb->prefix . 'dkovotable_votes';
+    $this->groups_table_name = $wpdb->prefix . 'dkovotable_groups';
+    $this->votables_table_name = $wpdb->prefix . 'dkovotable_votes_to_groups';
 
     $this->_setup_options();
 
     // Make sure db is created/up-to-date
-    register_activation_hook(DKOVOTABLES_PLUGIN_FILE, array($this, 'ensure_version'));
+    register_activation_hook(__FILE__, array($this, 'ensure_version'));
     add_action('plugins_loaded', array($this, 'ensure_version'));
 
     // Add admin page and help
@@ -76,33 +81,29 @@ class DKOVotables
     require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
 
     // Create/update the votes table
-    $votes_table_name = $wpdb->prefix . 'dkovotable_votes';
-    $sql = "CREATE TABLE $votes_table_name (
+    $sql = "CREATE TABLE {$this->votes_table_name} (
       id          mediumint(9)                                NOT NULL AUTO_INCREMENT,
+      description varchar(255)  DEFAULT ''                    NOT NULL,
       votes       mediumint(9)  DEFAULT 0                     NOT NULL,
-      group_id    mediumint(9)  DEFAULT 0                     NOT NULL,
-      description text                                        NOT NULL,
       create_date datetime      DEFAULT '0000-00-00 00:00:00' NOT NULL,
       UNIQUE KEY id (id)
     );";
     dbDelta($sql);
 
     // Create/update the groups table
-    $groups_table_name = $wpdb->prefix . 'dkovotable_groups';
-    $sql = "CREATE TABLE $groups_table_name (
-      id          mediumint(9)                                NOT NULL AUTO_INCREMENT,
-      group_name  varchar(255)  DEFAULT ''                    NOT NULL,
-      description text                                        NOT NULL,
-      create_date datetime      DEFAULT '0000-00-00 00:00:00' NOT NULL,
+    $sql = "CREATE TABLE " . $this->groups_table_name . " (
+      id mediumint(9) NOT NULL AUTO_INCREMENT,
+      name varchar(255) DEFAULT '' NOT NULL,
+      description text NOT NULL,
+      create_date datetime DEFAULT '0000-00-00 00:00:00' NOT NULL,
       UNIQUE KEY id (id)
     );";
     dbDelta($sql);
 
     // Create/update the votables-groups relationship table
-    $votables_to_groups_table_name = $wpdb->prefix . 'dkovotable_votables_to_groups';
-    $sql = "CREATE TABLE $votables_to_groups_table_name (
+    $sql = "CREATE TABLE {$this->votables_table_name} (
       id          mediumint(9)                                NOT NULL AUTO_INCREMENT,
-      votable_id  mediumint(9)  DEFAULT 0                     NOT NULL,
+      votes_id    mediumint(9)  DEFAULT 0                     NOT NULL,
       group_id    mediumint(9)  DEFAULT 0                     NOT NULL,
       create_date datetime      DEFAULT '0000-00-00 00:00:00' NOT NULL,
       UNIQUE KEY id (id)
@@ -123,12 +124,22 @@ class DKOVotables
       'Votables', // title tags
       'Votables', // on screen
       'manage_options',
-      $this->admin_page,
-      '',
+      self::slug,
+      array($this, 'admin_page'),
       'http://s.gravatar.com/avatar/dcf949116994998753bd171a74f20fe9?s=16',
       100.001
     );
-    add_action('admin_print_styles-' . $this->admin_page, array($this, 'admin_enqueue'));
+    add_action('admin_print_styles-' . $this->screen_id, array($this, 'admin_enqueue'));
+  }
+
+  /**
+   * admin_page
+   * Controller for the admin page
+   *
+   * @return void
+   */
+  public function admin_page() {
+    include 'controller/admin.php';
   }
 
   /**
@@ -138,10 +149,7 @@ class DKOVotables
    * @return void
    */
   public function admin_enqueue() {
-    wp_enqueue_style(
-      $this->slug,
-      plugins_url('/assets/css/admin.css', DKOVOTABLES_PLUGIN_FILE)
-    );
+    wp_enqueue_style(self::slug, plugins_url('/assets/css/admin.css', __FILE__));
   }
 
   /**
@@ -158,7 +166,7 @@ class DKOVotables
       return;
     }
     ob_start();
-    include plugin_dir_path(__FILE__) . 'views/contextual_help.php';
+    include plugin_dir_path(__FILE__) . 'view/contextual_help.php';
     $contextual_help = ob_get_contents();
     ob_end_clean();
     return $contextual_help;
