@@ -11,6 +11,18 @@
   .main {
     float: left;
     width: 60%;
+
+    .half {
+      float: left;
+      margin-right: 2%;
+      width: 46%;
+    }
+
+    .widefat td {
+      padding-top: 8px;
+      padding-bottom: 4px;
+    }
+
   }
 
   .sidebar {
@@ -18,7 +30,25 @@
     margin-left: 4%;
     width: 35%;
   }
-
-
 }
 
+@import "dkovotable";
+
+.js.toplevel_page_DKOVotables {
+  .click-to-toggle {
+    cursor: pointer;
+    &:before {
+      content: '+ ';
+    }
+    &.active:before {
+      content: '- ';
+    }
+  }
+
+  .collapsible {
+    border-left: 2px #ccc solid;
+    box-sizing: border-box;
+    display: none;
+    padding-left: 1em;
+  }
+}

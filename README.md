@@ -10,15 +10,9 @@ DKO Votables
 TODO
 ----
 
-* Add new votable, text fields for desc, group
-* Vote on votable via link
-  * check that votable exists
-  * then redirect to `return_url` param, otherwise exit
 * AJAX for voting on votable
-    * JS for disabling voting link once used
-* nonce voting via `wp_nonce_url`
-    * `wp_verify_nonce` backend
-* Submittable filter form
+  * non-admin-ajax endpoint
+* Add new votable, text fields for desc, group
 
 ### Phase 2 ###
 
@@ -29,6 +23,8 @@ TODO
   * Select list of vote_ids from votables where group_id = G
   * Delete votes where id in (votables.vote_id)
   * Delete votables where group_id = G
+* nonce voting via `wp_nonce_url`
+    * `wp_verify_nonce` backend
 
 ### Phase 3 ###
 

@@ -1,0 +1,7 @@
+.dkovotable[data-action="vote"] {
+  cursor: pointer;
+  text-decoration: underline;
+}
+.dkovotable[data-action="vote"]:hover {
+  color: #f00;
+}

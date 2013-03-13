@@ -6,10 +6,6 @@ module.exports = function (grunt) {
     pkg: '<json:package.json>',
 
     jshint: {
-      all: [
-        'Gruntfile.js',
-        'assets/js/*.js'
-      ],
       options: {
         curly:    true,
         eqeqeq:   true,
@@ -20,7 +16,11 @@ module.exports = function (grunt) {
         noarg:    true,
         sub:      true,
         undef:    true
-      }
+      },
+      all: [
+        'Gruntfile.js',
+        'assets/js/*.js'
+      ]
     },
     uglify: {
       /*
@@ -49,15 +49,11 @@ module.exports = function (grunt) {
     watch: {
       scripts: {
         files: ['assets/js/*.js'],
-        tasks: ['jshint']
+        tasks: ['jshint:all']
       },
       sass: {
         files: ['assets/sass/**/*.*'],
         tasks: ['sass:prod']
-      },
-      markdown: {
-        files: ['markdown/*'],
-        tasks: ['markdown']
       }
     }
   });
