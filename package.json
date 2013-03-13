@@ -4,7 +4,7 @@
   "description": "Voting framework for WordPress. Lets you create objects to vote on, quizzes, polls, posts, etc.",
   "main": "Gruntfile.js",
   "dependencies": {
-    "grunt": "~0.4.0",
+    "grunt": "~0.4.1",
     "grunt-contrib-jshint": "~0.2.0",
     "grunt-contrib-sass": "~0.2.2",
     "grunt-contrib-uglify": "~0.1.2"
@@ -28,5 +28,7 @@
     "quiz"
   ],
   "author": "David O'Trakoun",
-  "license": "GPL3"
+  "license": "BSD",
+  "readmeFilename": "README.md",
+  "gitHead": "f706186ade338d24f817826bcdb305f5f1f61d85"
 }
