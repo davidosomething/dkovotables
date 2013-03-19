@@ -1,3 +1,6 @@
+.dkovotable {
+  display: inline-block;
+}
 .dkovotable[data-action="vote"] {
   cursor: pointer;
   text-decoration: underline;

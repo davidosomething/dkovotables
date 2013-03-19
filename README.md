@@ -17,8 +17,6 @@ TODO
 ### Phase 2 ###
 
 * Clear votes for votable V (update where id = V)
-* Delete votes for X
-  * Delete votables where vote_id = X
 * Delete group G
   * Select list of vote_ids from votables where group_id = G
   * Delete votes where id in (votables.vote_id)

@@ -12,6 +12,7 @@
   $.fn.dkovotables = function (options) {
     var defaults;
 
+    var ajaxurl = window.ajaxurl || DKOVotables.ajaxurl;
     var els = this;
     var $els = $(els);
     var $counters;
@@ -54,7 +55,7 @@
 
       // iterate through updating data
       for (; i < totalActions; i++) {
-        $matchingCounters = $counters.filter('[data-id="' + actions[i].id + '"]');
+        $matchingCounters = $counters.filter('[data-votable-id="' + actions[i].votable_id + '"]');
 
         if (actions[i].change === 'set') {
           count = actions[i].votes;
@@ -85,7 +86,7 @@
     methods.clickedVotable = function (e) {
       var votable = this;
       var $this;
-      var id;
+      var votableId;
       e.preventDefault();
 
       $this = $(this);
@@ -94,8 +95,8 @@
         options.onClick.call(votable);
       }
 
-      id = $this.data('id');
-      if (!id) {
+      votableId = $this.data('votable-id');
+      if (!votableId) {
         console.error('votable missing id');
       }
 
@@ -105,7 +106,7 @@
         type: 'POST',
         data: {
           action: 'dkovotable_vote',
-          id: id
+          votable_id: votableId
         }
       });
 
@@ -151,7 +152,7 @@
       // option to update counters
       if (options.updateCountersAfterVote) {
         methods.updateCounters([
-          { change: 'set', id: response.id, votes: response.votes }
+          { change: 'set', votable_id: response.votable_id, votes: response.votes }
         ]);
       }
 

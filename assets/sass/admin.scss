@@ -17,18 +17,36 @@
       margin-right: 2%;
       width: 46%;
     }
-
-    .widefat td {
-      padding-top: 8px;
-      padding-bottom: 4px;
-    }
-
   }
 
   .sidebar {
     float: left;
     margin-left: 4%;
     width: 35%;
+  }
+
+  .results {
+    .widefat td {
+      padding-top: 8px;
+      padding-bottom: 4px;
+    }
+
+    /* tds and divs in the results table */
+    .id {
+      white-space: nowrap;
+      width: 5%;
+    }
+    .group {
+      width: 10%;
+    }
+    .votes {
+      text-align: right;
+      white-space: nowrap;
+      width: 10%;
+    }
+    .vote-for {
+      width: 20%;
+    }
   }
 }
 
@@ -46,7 +64,6 @@
   }
 
   .collapsible {
-    border-left: 2px #ccc solid;
     box-sizing: border-box;
     display: none;
     padding-left: 1em;

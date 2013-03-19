@@ -29,6 +29,7 @@ class DKOVotables
   // Admin vars
   private $screen_id; // check user on correct screen with this
   private $main_page; // submit forms here
+  private $admin_messages = array();
 
   // Database vars
   public $votes_table_name;
@@ -36,10 +37,6 @@ class DKOVotables
   public $votables_table_name;
 
   public static $votes_cache;
-
-  // JavaScript status
-  public $must_enqueue_js = false;
-
 
   /**
    * __construct
@@ -64,18 +61,18 @@ class DKOVotables
     register_activation_hook(__FILE__, array($this, 'ensure_version'));
     add_action('plugins_loaded', array($this, 'ensure_version'));
 
-
-    add_action('init', array($this, 'register_scripts'));
+    // Backend
+    add_action('init', array($this, 'handle_forms'));
 
     // Add admin page and help
     add_action('admin_menu', array($this, 'add_root_menu'));
     add_action('admin_enqueue_scripts', array($this, 'admin_enqueue_scripts'));
     add_action('wp_ajax_dkovotable_vote', array($this, 'vote'));
+    add_action('admin_notices', array($this, 'admin_notices'));
     add_filter('contextual_help', array($this, 'plugin_help'), 10, 3);
 
     // Frontend
     add_shortcode('dkovotable', array($this, 'shortcode'));
-    add_action('wp_footer', array($this, 'print_scripts'));
   }
 
 
@@ -189,11 +186,35 @@ class DKOVotables
    * get_count
    * get the number of votes for a votable
    *
-   * @param int $id
+   * @param int $votable_id
    * @return int
    */
-  public function get_count($id) {
-    return self::$votes_cache[$id];
+  public function get_count($votable_id) {
+    global $wpdb;
+    if (isset(self::$votes_cache[$votable_id])) {
+      return self::$votes_cache[$votable_id];
+    }
+    else {
+      $query = $wpdb->prepare("
+        SELECT
+          votables.id AS id,
+          votes.votes AS votes
+        FROM {$this->votables_table_name} AS votables
+        LEFT OUTER JOIN {$this->votes_table_name} AS votes ON votes.id = votables.votes_id
+        WHERE votables.id = %d
+        LIMIT 1
+        ",
+        $votable_id
+      );
+      $result = $wpdb->get_row($query);
+      // @TODO log instead of output
+      if (!$result) {
+        echo '<p class="error">Error getting votes for ', htmlspecialchars($votable_id), '</p>';
+      }
+      $this->cache_votes(array($result));
+      return $result->votes;
+    }
+    return 0;
   }
 
   /**
@@ -240,8 +261,363 @@ class DKOVotables
   }
 
 ////////////////////////////////////////////////////////////////////////////////
+// Backend /////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * handle_forms
+   *
+   * @return void
+   */
+  public function handle_forms() {
+    if (!empty($_POST[DKOVotables::SLUG])) {
+      if (wp_verify_nonce($_POST[DKOVotables::SLUG], 'create_votable')) {
+        $this->create_votable();
+      }
+      elseif (wp_verify_nonce($_POST[DKOVotables::SLUG], 'create_group')) {
+        $this->create_group();
+      }
+      else {
+        $this->admin_messages[] = array(
+          'is_error'  => true,
+          'content'   => '<p>Invalid nonce.</p>'
+        );
+      }
+      return; // you can only CREATE OR DELETE, not both at once
+    }
+
+    if (!empty($_GET['_wpnonce'])) {
+      $nonce = $_GET['_wpnonce'];
+      $votable_id = empty($_GET['votable_id']) ? 0 : (int)$_GET['votable_id'];
+      if (wp_verify_nonce($nonce, 'delete_votable_' . $votable_id)) {
+        $this->delete_votable($votable_id);
+        return;
+      }
+      elseif (wp_verify_nonce($nonce, 'reset_votable_' . $votable_id)) {
+        $this->reset_votable($votable_id);
+        return;
+      }
+      else {
+        $this->admin_messages[] = array(
+          'is_error'  => true,
+          'content'   => '<p>Invalid nonce.</p>'
+        );
+      }
+    }
+
+  }
+
+  /**
+   * create_votable
+   * Using POST data, create a new vote record and associate it to a group as
+   * a votable
+   *
+   * @return void
+   */
+  protected function create_votable() {
+    global $wpdb;
+
+    // REQUIRED FIELDS
+    if (empty($_POST['create_votable_description'])) {
+      $this->admin_messages[] = array(
+        'is_error'  => true,
+        'content'   => '<p>Please provide a description for the votable you are trying to create.</p>'
+      );
+      return;
+    }
+
+    // SANITIZE
+    $votes = empty($_POST['create_votable_votes']) ? 0 : (int)$_POST['create_votable_votes'];
+    $group_id = empty($_POST['create_votable_group']) ? 0 : (int)$_POST['create_votable_group'];
+
+    // do not mysql escape
+    $create_votes = $wpdb->insert(
+      $this->votes_table_name,
+      array(
+        'description' => $_POST['create_votable_description'],
+        'votes'       => $votes,
+        'create_date' => current_time('mysql')
+      ),
+      array(
+        '%s',
+        '%d'
+      )
+    );
+
+    if ($create_votes === false) {
+      $this->admin_messages[] = array(
+        'is_error'  => true,
+        'content'   => '<p>There was an error create a vote record for the votable.</p>'
+      );
+      return;
+    }
+
+    $votes_id = $wpdb->insert_id;
+
+    $create_votable = $wpdb->insert(
+      $this->votables_table_name,
+      array(
+        'votes_id' => $votes_id,
+        'group_id' => $group_id,
+        'create_date' => current_time('mysql')
+      ),
+      array(
+        '%d',
+        '%d',
+        '%s'
+      )
+    );
+
+    if ($create_votable === false) {
+      $this->admin_messages[] = array(
+        'is_error'  => true,
+        'content'   => '<p>There was an error creating the votable.</p>'
+      );
+      return;
+    }
+
+    $group = $this->get_group($group_id);
+    $this->admin_messages[] = array(
+      'is_error'  => false,
+      'content'   => '<p>Successfully created a new votable in group <em>' . $group->name . '</em>.</p>'
+    );
+    return;
+  }
+
+  /**
+   * create_group
+   * Using POST data, create a new group
+   *
+   * @return void
+   */
+  protected function create_group() {
+    global $wpdb;
+
+    // REQUIRED FIELDS
+    if (empty($_POST['create_group_name'])) {
+      $this->admin_messages[] = array(
+        'is_error'  => true,
+        'content'   => '<p>Please provide a name for the group you are trying to create.</p>'
+      );
+      return;
+    }
+
+    if (empty($_POST['create_group_description'])) {
+      $this->admin_messages[] = array(
+        'is_error'  => true,
+        'content'   => '<p>Please provide a description for the group you are trying to create.</p>'
+      );
+      return;
+    }
+
+    // do not mysql escape
+    $create_group = $wpdb->insert(
+      $this->groups_table_name,
+      array(
+        'name'        => $_POST['create_group_name'],
+        'description' => $_POST['create_group_description'],
+        'create_date' => current_time('mysql')
+      ),
+      array(
+        '%s',
+        '%s',
+        '%s'
+      )
+    );
+
+    if ($create_group === false) {
+      $this->admin_messages[] = array(
+        'is_error'  => true,
+        'content'   => '<p>There was an error creating the group.</p>'
+      );
+      return;
+    }
+
+    $group_name = htmlspecialchars($_POST['create_group_name']);
+    $this->admin_messages[] = array(
+      'is_error'  => false,
+      'content'   => '<p>Successfully created the group <em>' . $group_name . '</em>.</p>'
+    );
+    return;
+  }
+
+  /**
+   * delete_votable
+   *
+   * @return void
+   */
+  protected function delete_votable($votable_id) {
+    global $wpdb;
+    if (!is_int($votable_id)) {
+      $this->admin_messages[] = array(
+        'is_error'  => true,
+        'content'   => '<p>Invalid ID provided when trying to delete votable.</p>'
+      );
+      return;
+    }
+
+    $query = $wpdb->prepare("
+      SELECT votes_id FROM {$this->votables_table_name}
+      WHERE id = %d
+      ", $votable_id
+    );
+    $vote_id = $wpdb->get_var($query);
+
+    // delete the vote for this votable
+    if ($vote_id) {
+      $query = $wpdb->prepare("
+        DELETE FROM {$this->votes_table_name}
+        WHERE id = %d
+        ",
+        $vote_id
+      );
+      $result = $wpdb->query($query);
+    }
+
+    // delete the associated votable, leaving only the group
+    $query = $wpdb->prepare("
+      DELETE FROM {$this->votables_table_name}
+      WHERE id = %d
+      ", $votable_id
+    );
+    $result = $wpdb->query($query);
+
+    if ($result === FALSE) {
+      $this->admin_messages[] = array(
+        'is_error'  => true,
+        'content'   => '<p>MySQL error when trying to delete votable.</p>'
+      );
+      return;
+    }
+
+    if (!$result) {
+      $this->admin_messages[] = array(
+        'is_error'  => true,
+        'content'   => '<p>Tried to delete votable but nothing was deleted.</p>'
+      );
+      return;
+    }
+
+    $this->admin_messages[] = array(
+      'is_error'  => false,
+      'content'   => '<p>Deleted votable #' . $votable_id . '.</p>'
+    );
+    return;
+  }
+
+  /**
+   * reset_votable
+   *
+   * @return void
+   */
+  protected function reset_votable($votable_id) {
+    global $wpdb;
+    if (!is_int($votable_id)) {
+      $this->admin_messages[] = array(
+        'is_error'  => true,
+        'content'   => '<p>Invalid ID provided when trying to reset votable.</p>'
+      );
+      return;
+    }
+
+    $query = $wpdb->prepare("
+      SELECT votes_id FROM {$this->votables_table_name}
+      WHERE id = %d
+      ", $votable_id
+    );
+    $vote_id = $wpdb->get_var($query);
+
+    // delete the vote for this votable
+    if (!$vote_id) {
+      $this->admin_messages[] = array(
+        'is_error'  => true,
+        'content'   => '<p>MySQL error when trying to select vote id to reset.</p>'
+      );
+      return;
+    }
+
+    $query = $wpdb->prepare("
+      UPDATE {$this->votes_table_name}
+      SET votes = 0
+      WHERE id = %d
+      ",
+      $vote_id
+    );
+    $result = $wpdb->query($query);
+
+    if ($result === FALSE) {
+      $this->admin_messages[] = array(
+        'is_error'  => true,
+        'content'   => '<p>MySQL error when trying to reset votes.</p>'
+      );
+      return;
+    }
+
+    if (!$result) {
+      $this->admin_messages[] = array(
+        'is_error'  => true,
+        'content'   => '<p>Tried to reset votes but nothing was reset.</p>'
+      );
+      return;
+    }
+
+    $this->admin_messages[] = array(
+      'is_error'  => false,
+      'content'   => '<p>Reset votable #' . $votable_id . '.</p>'
+    );
+    return;
+  }
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Common to Admin and Visitor /////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * enqueue_script
+   * Enqueues the main dkovotables script
+   *
+   * @return void
+   */
+  public function enqueue_script() {
+    wp_enqueue_script(
+      self::SLUG,
+      plugins_url('assets/js/script.js', __FILE__),
+      array('jquery'),
+      self::VERSION
+    );
+    wp_localize_script(
+      self::SLUG,
+      self::SLUG,
+      array(
+        'ajaxurl' => admin_url('admin-ajax.php')
+      )
+    );
+  }
+
+
+////////////////////////////////////////////////////////////////////////////////
 // Admin ///////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+
+  /**
+   * Display messages in the CMS
+   */
+  public function admin_notices() {
+    if (!count($this->admin_messages)) {
+      return;
+    }
+    foreach ($this->admin_messages as $message) {
+      if (array_key_exists('is_error', $message) && $message['is_error']) {
+        echo '<div class="error">';
+      }
+      else {
+        echo '<div class="updated">';
+      }
+      echo $message['content'];
+      echo '</div>';
+    }
+  }
 
   /**
    * add_root_menu
@@ -283,7 +659,7 @@ class DKOVotables
       return;
     }
     // enqueue the main JS
-    wp_enqueue_script( self::SLUG );
+    $this->enqueue_script();
 
     // enqueue the admin JS which relies on the main JS
     wp_enqueue_script(
@@ -328,25 +704,26 @@ class DKOVotables
     return $contextual_help;
   }
 
+  /**
+   * admin_link
+   * Create a link to perform some admin action
+   *
+   * @param int $votable_id
+   * @return string
+   */
+  protected function admin_link($action, $votable_id) {
+    $query = build_query(array(
+      'votable_id' => $votable_id
+    ));
+    $url = $this->main_page . '&amp;' . $query;
+    $nonce_action = $action . '_votable_' . $votable_id;
+    return wp_nonce_url($url, $nonce_action);
+  }
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Frontend ////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-
-  /**
-   * register_scripts
-   *
-   * @return void
-   */
-  public function register_scripts() {
-    wp_register_script(
-      self::SLUG,
-      plugins_url('assets/js/script.js', __FILE__),
-      array('jquery'),
-      self::VERSION,
-      true
-    );
-  }
 
   /**
    * shortcode
@@ -356,7 +733,7 @@ class DKOVotables
    * @return void
    */
   public function shortcode($atts, $content = null) {
-    $this->must_enqueue_js = true;
+    $this->enqueue_script();
 
     extract(shortcode_atts(array(
       'id'      => 0,
@@ -373,10 +750,10 @@ class DKOVotables
       }
 
       if (!$content) {
-        $content = 'Vote for votable #' . $id;
+        $content = 'Vote for #' . $id;
       }
 
-      $output = '<div class="dkovotable" data-action="vote" data-id="' . $id . '">';
+      $output = '<div class="dkovotable" data-action="vote" data-votable-id="' . $id . '">';
       $output .= $content;
       $output .= '</div>';
       return $output;
@@ -389,7 +766,7 @@ class DKOVotables
         return '[missing votable id]';
       }
 
-      $output = '<span class="dkovotable dkovotable-textcounter" data-id="' . $id . '" data-action="count" data-count="' . $this->get_count($id) . '">';
+      $output = '<span class="dkovotable dkovotable-textcounter" data-votable-id="' . $id . '" data-action="count" data-count="' . $this->get_count($id) . '">';
       $output .= $this->get_count($id);
       $output .= '</span>';
       return $output;
@@ -397,21 +774,6 @@ class DKOVotables
 
     return $output;
   }
-
-  /**
-   * print_scripts
-   * Hook for wp_footer, prints scripts if the must_enqueue_js var is true,
-   * which is only when the shortcode has been used.
-   *
-   * @return void
-   */
-  public function print_scripts() {
-    if (!$this->must_enqueue_js) {
-      return;
-    }
-    wp_print_scripts('dkovotables');
-  }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // AJAX Hooks //////////////////////////////////////////////////////////////////
@@ -441,45 +803,55 @@ class DKOVotables
     global $wpdb; // this is how you get access to the database
 
     // sanitize POST data
-    $id = (int)$_POST['id'];
-    if (!$id) {
+    $votable_id = (int)$_POST['votable_id'];
+    if (!$votable_id) {
       $this->output_json(array('error' => 'Missing ID parameter.'));
       die();
     }
 
     // get current votes
-    $sql = $wpdb->prepare("SELECT votes FROM {$this->votes_table_name} WHERE id = %d", $id);
-    $current_votes = $wpdb->get_var($sql);
-    if ($current_votes === false) {
+    $sql = $wpdb->prepare("
+      SELECT
+        votables.votes_id AS votes_id,
+        votes.votes AS votes
+      FROM {$this->votables_table_name} AS votables
+      LEFT JOIN {$this->votes_table_name} AS votes ON votables.votes_id = votes.id
+      WHERE votables.id = %d
+      ",
+      $votable_id
+    );
+    $result = $wpdb->get_row($sql);
+
+    if (!$result) {
       $this->output_json(array('error' => 'Votable ID not found.'));
       die();
     }
 
-    $new_votes = $current_votes + 1;
+    $new_votes = $result->votes + 1;
 
     // increment votes
     $update = $wpdb->update(
       $this->votes_table_name,
       array('votes' => $new_votes),
-      array('id' => $id),
+      array('id' => $result->votes_id),
       array('%d'),
       array('%d')
     );
 
     if ($update === false) {
-      $this->output_json(array('error' => 'Couldn\'t increment votes for votable with id ' . $id));
+      $this->output_json(array('error' => 'Couldn\'t increment votes for vote with id ' . $result->votes_id));
       die();
     }
 
     if ($update === 0) {
-      $this->output_json(array('error' => 'Nothing was updated trying to increment votes for votable with id ' . $id));
+      $this->output_json(array('error' => 'Nothing was updated trying to increment votes for vote with id ' . $result->votes_id));
       die();
     }
 
     $this->output_json(array(
-      'success' => true,
-      'id'      => $id,
-      'votes'   => $new_votes
+      'success'     => true,
+      'votable_id'  => $votable_id,
+      'votes'       => $new_votes
     ));
     die(); // this is required to return a proper result
   }

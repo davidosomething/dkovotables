@@ -12,6 +12,12 @@
             <?php endforeach; ?>
           </select>
 
+          <label for="dkovotables-sort-filter">Sort by</label>
+          <select id="dkovotables-sort-filter" name="filter_sort">
+            <option value="id" <?php selected('votes', $data['filter']['sort']); ?>>ID/Date Created</option>
+            <option value="votes" <?php selected('votes', $data['filter']['sort']); ?>>Votes</option>
+          </select>
+
           <label for="dkovotables-limit-filter">Rows</label>
           <input id="dkovotables-limit-filter" name="filter_limit" type="number" value="<?php echo $data['filter']['limit']; ?>" max="500" min="1">
 
