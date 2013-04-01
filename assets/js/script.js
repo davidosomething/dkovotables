@@ -87,18 +87,27 @@
       var votable = this;
       var $this;
       var votableId;
+      var onClick = $.Callbacks();
       e.preventDefault();
 
       $this = $(this);
 
-      if (typeof options.afterClick === 'function') {
-        options.onClick.call(votable);
-      }
-
       votableId = $this.data('votable-id');
       if (!votableId) {
         console.error('votable missing id');
+        return;
       }
+
+      // global event
+      $(window).trigger('dkovotable:votable:clicked', votable);
+
+      // click callbacks
+      if (options.onlyClickOnce) {
+        methods.disableVotable.call(votable);
+      }
+      // custom callbacks
+      onClick.add(options.onClick); // custom onClick callbacks
+      onClick.fire(votable);
 
       // AJAX vote
       var vote = $.ajax({
@@ -110,25 +119,9 @@
         }
       });
 
-      vote.always($.proxy(methods.onClick, votable));
+      // custom callbacks
       vote.done($.proxy(methods.onDone, votable));
       vote.fail($.proxy(options.onFail, votable));
-    };
-
-    /**
-     * methods.onClick
-     * Default AJAX handler for always, call via proxy
-     */
-    methods.onClick = function () {
-      var votable = this;
-      if (options.onlyClickOnce) {
-        methods.disableVotable.call(votable);
-      }
-
-      // custom handler
-      if (typeof options.onClick === 'function') {
-        options.onClick.call(votable);
-      }
     };
 
     /**
@@ -138,11 +131,15 @@
      */
     methods.onDone = function (response) {
       var votable = this;
+      var onDone = $.Callbacks();
 
       if (response.error) {
         console.error(response.error);
         return;
       }
+
+      // global event
+      $(window).trigger('dkovotable:votable:voted', votable);
 
       // option to remove element
       if (options.removeAfterVote) {
@@ -156,10 +153,9 @@
         ]);
       }
 
-      // custom handler
-      if (typeof options.onDone === 'function') {
-        options.onDone.call(votable);
-      }
+      // custom callbacks
+      onDone.add(options.onDone); // custom onClick callbacks
+      onDone.fire(votable);
     };
 
     /**
@@ -190,16 +186,15 @@
 // Options /////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
     defaults = {
-      onlyClickOnce: true,            // prevent multiple clicks on a votable
-      removeAfterVote: true,          // remove the votable element after it is clicked
-      updateCountersAfterVote: true,  // update known counters after clicking vote
-      onDone: null,                   // fires after successful vote (AJAX success)
-      onError: null,                  // fires after unsuccessful vote (AJAX success)
-      onFail: methods.ajaxFail        // fires on AJAX errors
+      onlyClickOnce:            true,   // prevent multiple clicks on a votable
+      removeAfterVote:          true,   // remove the votable element after it is clicked
+      updateCountersAfterVote:  true,   // update known counters after clicking vote
+      onClick:  null,                   // fire immediately after clicking votable
+      onDone:   null,                   // fires after successful vote (AJAX success)
+      onError:  null,                   // fires after unsuccessful vote (AJAX success)
+      onFail: methods.ajaxFail          // fires on AJAX errors (http error)
     };
     options = $.extend(defaults, options);
-
-    console.log(options);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Plugin Body /////////////////////////////////////////////////////////////////

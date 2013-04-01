@@ -12,11 +12,9 @@ TODO
 
 * AJAX for voting on votable
   * non-admin-ajax endpoint
-* Add new votable, text fields for desc, group
 
 ### Phase 2 ###
 
-* Clear votes for votable V (update where id = V)
 * Delete group G
   * Select list of vote_ids from votables where group_id = G
   * Delete votes where id in (votables.vote_id)
@@ -31,3 +29,7 @@ TODO
 * Edit vote item description
 * Edit group description
 * Sort results table by clicking column headers
+
+### Phase 4 ###
+
+* Add option for logged-in only voting
