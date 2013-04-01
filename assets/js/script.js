@@ -9,13 +9,101 @@
 (function ($) {
   "use strict";
 
+////////////////////////////////////////////////////////////////////////////////
+// Global Plugin ///////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+  var ajaxurl = window.ajaxurl || DKOVotables.ajaxurl;
+  var $counters;
+  $.dkovotables = function (method, args) {
+
+////////////////////////////////////////////////////////////////////////////////
+// Methods /////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+    var methods = {};
+
+    /**
+     * methods.updateCounters
+     * change counter values
+     */
+    methods.updateCounters = function (actions) {
+      var i = 0;
+      var totalActions = actions.length;
+      var ajaxData = {};
+      var $matchingCounters;
+      var $counter, count;
+
+      function updateCountersWithAjax(data) {
+        return methods.updateCounters([$.extend({
+          change: 'set',
+          votes: data.votes
+        }, ajaxData)]);
+      }
+
+      if (!totalActions) {
+        return;
+      }
+
+      // iterate through updating data
+      for (; i < totalActions; i++) {
+
+        // What are we updating?
+        if ("votable_id" in actions[i]) {
+          $matchingCounters = $counters.filter('[data-votable-id="' + actions[i].votable_id + '"]');
+          ajaxData = { votable_id: actions[i].votable_id };
+        }
+        else if ("group_name" in actions[i]) {
+          $matchingCounters = $counters.filter('[data-votable-group-name="' + actions[i].group_name + '"]');
+          ajaxData = { group_name: actions[i].group_name };
+        }
+
+        // How are we updating it?
+        if ('change' in actions[i]) {
+          if (actions[i].change === 'set') {
+            count = actions[i].votes;
+          }
+          else if (['increment', 'decrement'].indexOf(actions[i].change) != -1) {
+            // do math on only one
+            $counter = $matchingCounters.first();
+            count = parseInt($counter.data('count'), 10); // make sure the count is an int
+
+            if (actions[i].change === 'increment') {
+              count = count + 1;
+            }
+            else if (actions[i].change === 'decrement') {
+              count = count - 1;
+            }
+          }
+
+          // update jquery data (and view if necessary)
+          $matchingCounters.data('count', count).filter('.dkovotable-textcounter').text(count);
+        }
+
+        // @TODO no action means 'set' via AJAX
+        else {
+          return $.ajax({
+            url:  ajaxurl,
+            type: 'POST',
+            data: $.extend({ action: 'dkovotable_count' }, ajaxData)
+          }).done(updateCountersWithAjax);
+        }
+      }
+    };
+
+    if (method in methods) {
+      return methods[method](args);
+    }
+
+  };
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Selector Plugin /////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
   $.fn.dkovotables = function (options) {
     var defaults;
 
-    var ajaxurl = window.ajaxurl || DKOVotables.ajaxurl;
     var els = this;
     var $els = $(els);
-    var $counters;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Methods /////////////////////////////////////////////////////////////////////
@@ -38,56 +126,6 @@
      */
     methods.getCounters = function () {
       return $els.filter('[data-action="count"]');
-    };
-
-    /**
-     * methods.updateCounters
-     * change counter values
-     */
-    methods.updateCounters = function (actions) {
-      var i = 0;
-      var totalActions = actions.length;
-      var $matchingCounters;
-      var $counter, count;
-
-      if (!totalActions) {
-        return;
-      }
-
-      // iterate through updating data
-      for (; i < totalActions; i++) {
-
-        // What are we updating?
-        if ("votable_id" in actions[i]) {
-          $matchingCounters = $counters.filter('[data-votable-id="' + actions[i].votable_id + '"]');
-        }
-        else if ("group_name" in actions[i]) {
-          $matchingCounters = $counters.filter('[data-votable-group-name="' + actions[i].group_name + '"]');
-        }
-
-        // How are we updating it?
-        if (actions[i].change === 'set') {
-          count = actions[i].votes;
-        }
-        else if (['increment', 'decrement'].indexOf(actions[i].change) != -1) {
-          // do math on only one
-          $counter = $matchingCounters.first();
-          count = parseInt($counter.data('count'), 10); // make sure the count is an int
-
-          if (actions[i].change === 'increment') {
-            count = count + 1;
-          }
-          else if (actions[i].change === 'decrement') {
-            count = count - 1;
-          }
-        }
-        else {
-          console.error('invalid action');
-        }
-
-        // update jquery data (and view if necessary)
-        $matchingCounters.data('count', count).filter('.dkovotable-textcounter').text(count);
-      }
     };
 
     /**
@@ -160,7 +198,7 @@
 
       // option to update counters
       if (options.updateCountersAfterVote) {
-        methods.updateCounters([
+        $.dkovotables('updateCounters', [
           { change: 'increment', votable_id: response.votable_id },
           { change: 'increment', group_name: response.group_name }
         ]);

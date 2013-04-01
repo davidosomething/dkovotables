@@ -68,10 +68,14 @@ class DKOVotables
     // Add admin page and help
     add_action('admin_menu', array($this, 'add_root_menu'));
     add_action('admin_enqueue_scripts', array($this, 'admin_enqueue_scripts'));
-    add_action('wp_ajax_dkovotable_vote', array($this, 'vote'));
-    add_action('wp_ajax_nopriv_dkovotable_vote', array($this, 'vote'));
     add_action('admin_notices', array($this, 'admin_notices'));
     add_filter('contextual_help', array($this, 'plugin_help'), 10, 3);
+
+    // AJAX hooks
+    add_action('wp_ajax_dkovotable_vote', array($this, 'vote'));
+    add_action('wp_ajax_nopriv_dkovotable_vote', array($this, 'vote'));
+    add_action('wp_ajax_dkovotable_count', array($this, 'count'));
+    add_action('wp_ajax_nopriv_dkovotable_count', array($this, 'count'));
 
     // Frontend
     add_shortcode('dkovotable', array($this, 'shortcode'));
@@ -200,12 +204,28 @@ class DKOVotables
 
   /**
    * get_count
+   * get the number of votes for a thing
+   *
+   * @return int
+   */
+  public function get_count() {
+    if (!empty($_POST['votable_id'])) {
+      return $this->get_votable_count($_POST['votable_id']);
+    }
+    elseif (!empty($_POST['group_name'])) {
+      return $this->get_group_count($_POST['group_name']);
+    }
+    return 0;
+  }
+
+  /**
+   * get_votable_count
    * get the number of votes for a votable
    *
    * @param int $votable_id
    * @return int
    */
-  public function get_count($votable_id) {
+  public function get_votable_count($votable_id) {
     global $wpdb;
     if (isset(self::$votes_cache[$votable_id])) {
       return self::$votes_cache[$votable_id];
@@ -849,8 +869,8 @@ class DKOVotables
     elseif ($action === 'count') {
       $id = (int)$id;
       if (!empty($id)) {
-        $output = '<span class="dkovotable dkovotable-textcounter" data-votable-id="' . $id . '" data-action="count" data-count="' . $this->get_count($id) . '">';
-        $output .= $this->get_count($id);
+        $output = '<span class="dkovotable dkovotable-textcounter" data-votable-id="' . $id . '" data-action="count" data-count="' . $this->get_votable_count($id) . '">';
+        $output .= $this->get_votable_count($id);
         $output .= '</span>';
       }
       elseif (!empty($name)) {
@@ -880,6 +900,14 @@ class DKOVotables
   protected function output_json($data) {
     header('Content-Type: application/json');
     echo json_encode($data);
+    die(); // this is required to return a proper result
+  }
+
+  public function count() {
+    $this->output_json(array(
+      'success'     => true,
+      'votes'       => $this->get_count()
+    ));
     die(); // this is required to return a proper result
   }
 
@@ -967,7 +995,7 @@ $dkovotables = DKOVotables::get_instance();
 function dkovotable_results($type, $id) {
   global $dkovotables;
   if ($type === 'votable') {
-    return $dkovotables->get_count($id);
+    return $dkovotables->get_votable_count($id);
   }
   elseif ($type === 'group') {
     return $dkovotables->get_group_count($id);
