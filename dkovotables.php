@@ -36,7 +36,8 @@ class DKOVotables
   public $groups_table_name;
   public $votables_table_name;
 
-  public static $votes_cache;
+  public static $votes_cache = array();
+  public static $group_votes_cache = array();
 
   /**
    * __construct
@@ -68,6 +69,7 @@ class DKOVotables
     add_action('admin_menu', array($this, 'add_root_menu'));
     add_action('admin_enqueue_scripts', array($this, 'admin_enqueue_scripts'));
     add_action('wp_ajax_dkovotable_vote', array($this, 'vote'));
+    add_action('wp_ajax_nopriv_dkovotable_vote', array($this, 'vote'));
     add_action('admin_notices', array($this, 'admin_notices'));
     add_filter('contextual_help', array($this, 'plugin_help'), 10, 3);
 
@@ -171,14 +173,28 @@ class DKOVotables
   /**
    * cache_votes
    * Get votes count from SQL results of array of objects
-   * Store in $this->votes_cache array, indexed using votablee id
+   * Store in $this->votes_cache array, indexed using votable id
    *
-   * @param mixed $votes
+   * @param object $votes
    * @return void
    */
   protected function cache_votes($votes) {
     foreach ($votes as $vote) {
       self::$votes_cache[$vote->id] = $vote->votes;
+    }
+  }
+
+  /**
+   * cache_group_votes
+   * Get a group's votes count from SQL results of array of objects
+   * Store in $this->group_votes_cache array, indexed using group_name
+   *
+   * @param object $votes
+   * @return void
+   */
+  protected function cache_group_votes($groups) {
+    foreach ($groups as $group) {
+      self::$group_votes_cache[$group->name] = $group->votes;
     }
   }
 
@@ -218,6 +234,43 @@ class DKOVotables
   }
 
   /**
+   * get_group_count
+   * get the number of votes for an entire group
+   *
+   * @param int $group_id
+   * @return int
+   */
+  public function get_group_count($group_name) {
+    global $wpdb;
+    if (isset(self::$group_votes_cache[$group_name])) {
+      return self::$group_votes_cache[$group_name];
+    }
+    else {
+      $query = $wpdb->prepare("
+        SELECT
+          groups.id AS id,
+          groups.name AS name,
+          SUM(votes.votes) AS votes
+        FROM {$this->groups_table_name} AS groups 
+        INNER JOIN {$this->votables_table_name} AS votables ON votables.group_id = groups.id
+        LEFT OUTER JOIN {$this->votes_table_name} AS votes ON votes.id = votables.votes_id
+        WHERE groups.name = %s
+        LIMIT 1
+        ",
+        $group_name
+      );
+      $result = $wpdb->get_row($query);
+      // @TODO log instead of output
+      if (!$result) {
+        echo '<p class="error">Error getting votes for group ', htmlspecialchars($group_name), '</p>';
+      }
+      $this->cache_group_votes(array($result));
+      return $result->votes;
+    }
+    return 0;
+  }
+
+  /**
    * get_groups
    *
    * @return array of group objects
@@ -249,15 +302,39 @@ class DKOVotables
     }
 
     $group_ids = wp_list_pluck($this->get_groups(), 'id');
-    $group_id = array_search($id, $group_ids, false);
+    $group_index = array_search($id, $group_ids, false);
 
     // return null if group not found
-    if ($group_id === false) {
+    if ($group_index === false) {
       return null;
     }
 
     // return the found group
-    return $this->get_groups()[$group_id];
+    return $this->get_groups()[$group_index];
+  }
+
+  /**
+   * get_group_by_name
+   * Return the ALL group or some cached object from the groups_cache
+   *
+   * @param mixed $id
+   * @return bool|null|object false if no name, null if not found, object if found
+   */
+  public function get_group_by_name($name) {
+    if (empty($name)) {
+      return false;
+    }
+
+    $group_names = wp_list_pluck($this->get_groups(), 'name');
+    $group_index = array_search($name, $group_names, false);
+
+    // return null if group not found
+    if ($group_index === false) {
+      return null;
+    }
+
+    // return the found group
+    return $this->get_groups()[$group_index];
   }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -736,11 +813,20 @@ class DKOVotables
     $this->enqueue_script();
 
     extract(shortcode_atts(array(
-      'id'      => 0,
-      'action'  => 'link'
+      'id'          => 0,
+      'name'        => '',
+      'action'      => 'link',
+      'capability'  => '*'
     ), $atts));
 
     $output = '';
+
+    // Shortcode does nothing if user doesn't have capability
+    if ($capability !== '*') {
+      if (!current_user_can($capability)) {
+        return;
+      }
+    }
 
     // Shortcode action attribute requests a link to vote for the votable
     if ($action === 'link') {
@@ -762,13 +848,19 @@ class DKOVotables
     // Shortcode action attribute requests a link to vote for the votable
     elseif ($action === 'count') {
       $id = (int)$id;
-      if (!$id) {
-        return '[missing votable id]';
+      if (!empty($id)) {
+        $output = '<span class="dkovotable dkovotable-textcounter" data-votable-id="' . $id . '" data-action="count" data-count="' . $this->get_count($id) . '">';
+        $output .= $this->get_count($id);
+        $output .= '</span>';
       }
-
-      $output = '<span class="dkovotable dkovotable-textcounter" data-votable-id="' . $id . '" data-action="count" data-count="' . $this->get_count($id) . '">';
-      $output .= $this->get_count($id);
-      $output .= '</span>';
+      elseif (!empty($name)) {
+        $output = '<span class="dkovotable dkovotable-textcounter" data-votable-group-name="' . $name . '" data-action="count" data-count="' . $this->get_group_count($name) . '">';
+        $output .= $this->get_group_count($name);
+        $output .= '</span>';
+      }
+      else {
+        return '[missing votable id or group name]';
+      }
       return $output;
     }
 
@@ -793,7 +885,7 @@ class DKOVotables
 
   /**
    * vote
-   * Hooked into wp_ajax_dkovotable_vote
+   * Hooked into wp_ajax_dkovotable_vote and wp_ajax_nopriv_dkovotable_vote
    * So AJAX calls to ajaxurl with action "dkovotable_vote" will use this function
    *
    * @access public
@@ -813,9 +905,11 @@ class DKOVotables
     $sql = $wpdb->prepare("
       SELECT
         votables.votes_id AS votes_id,
+        groups.name AS group_name,
         votes.votes AS votes
       FROM {$this->votables_table_name} AS votables
       LEFT JOIN {$this->votes_table_name} AS votes ON votables.votes_id = votes.id
+      LEFT JOIN {$this->groups_table_name} AS groups ON votables.group_id = groups.id
       WHERE votables.id = %d
       ",
       $votable_id
@@ -851,6 +945,7 @@ class DKOVotables
     $this->output_json(array(
       'success'     => true,
       'votable_id'  => $votable_id,
+      'group_name'  => $result->group_name,
       'votes'       => $new_votes
     ));
     die(); // this is required to return a proper result
@@ -858,3 +953,24 @@ class DKOVotables
 
 }
 $dkovotables = DKOVotables::get_instance();
+
+
+/**
+ * dkovotable_results
+ * Pretty function wrapper for votable result counts
+ *
+ * @param string $type should be votable or group
+ * @param int $id
+ * @access public
+ * @return int|bool false when $type is not votable or group
+ */
+function dkovotable_results($type, $id) {
+  global $dkovotables;
+  if ($type === 'votable') {
+    return $dkovotables->get_count($id);
+  }
+  elseif ($type === 'group') {
+    return $dkovotables->get_group_count($id);
+  }
+  return false;
+}

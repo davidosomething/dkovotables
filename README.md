@@ -10,9 +10,6 @@ DKO Votables
 TODO
 ----
 
-* AJAX for voting on votable
-  * non-admin-ajax endpoint
-
 ### Phase 2 ###
 
 * Delete group G

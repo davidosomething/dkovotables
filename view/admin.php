@@ -48,7 +48,7 @@
               <td class="id"><?php echo $votable->id; ?></td>
               <td>
                 <?php echo $votable->description; ?><br>
-                <code>[dkovotable action="link" id="<?php echo $votable->id; ?>"]</code>
+                <code>[dkovotable action="link" id="<?php echo $votable->id; ?>" capability="*"]</code>
               </td>
               <td class="group"><?php echo $votable->group_name; ?></td>
               <td class="votes">

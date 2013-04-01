@@ -47,7 +47,8 @@
     methods.updateCounters = function (actions) {
       var i = 0;
       var totalActions = actions.length;
-      var $matchingCounters, $counter, count;
+      var $matchingCounters;
+      var $counter, count;
 
       if (!totalActions) {
         return;
@@ -55,13 +56,20 @@
 
       // iterate through updating data
       for (; i < totalActions; i++) {
-        $matchingCounters = $counters.filter('[data-votable-id="' + actions[i].votable_id + '"]');
 
+        // What are we updating?
+        if ("votable_id" in actions[i]) {
+          $matchingCounters = $counters.filter('[data-votable-id="' + actions[i].votable_id + '"]');
+        }
+        else if ("group_name" in actions[i]) {
+          $matchingCounters = $counters.filter('[data-votable-group-name="' + actions[i].group_name + '"]');
+        }
+
+        // How are we updating it?
         if (actions[i].change === 'set') {
           count = actions[i].votes;
         }
-
-        else if (['increment', 'decrement'].indexOf(actions[i].change)) {
+        else if (['increment', 'decrement'].indexOf(actions[i].change) != -1) {
           // do math on only one
           $counter = $matchingCounters.first();
           count = parseInt($counter.data('count'), 10); // make sure the count is an int
@@ -72,6 +80,9 @@
           else if (actions[i].change === 'decrement') {
             count = count - 1;
           }
+        }
+        else {
+          console.error('invalid action');
         }
 
         // update jquery data (and view if necessary)
@@ -120,6 +131,7 @@
       });
 
       // custom callbacks
+      vote.always($.proxy(methods.onAfter, votable));
       vote.done($.proxy(methods.onDone, votable));
       vote.fail($.proxy(options.onFail, votable));
     };
@@ -149,13 +161,30 @@
       // option to update counters
       if (options.updateCountersAfterVote) {
         methods.updateCounters([
-          { change: 'set', votable_id: response.votable_id, votes: response.votes }
+          { change: 'increment', votable_id: response.votable_id },
+          { change: 'increment', group_name: response.group_name }
         ]);
       }
 
       // custom callbacks
       onDone.add(options.onDone); // custom onClick callbacks
       onDone.fire(votable);
+    };
+
+    /**
+     * methods.onAfter
+     * Happens after the AJAX request completes, regardless of success/fail
+     * @param object response
+     */
+    methods.onAfter = function (response) {
+      var votable = this;
+      var onAfter = $.Callbacks();
+
+      // main onAfter
+
+      // custom callbacks
+      onAfter.add(options.onAfter); // custom onClick callbacks
+      onAfter.fire(votable);
     };
 
     /**

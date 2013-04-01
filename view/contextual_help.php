@@ -10,12 +10,7 @@ item, URL, image, etc.</p>
 <p>To define something new that can be voted on, create a new Votable.<br>
 Then, to create a link to vote on that thing, use the shortcode:</p>
 
-<pre>[dkovotable-vote-link id=&quot;THINGID&quot;]
-[dkovotable-vote-link id=&quot;THINGID&quot; group=&quot;COOL_THINGS&quot;]</pre>
-
-<p>Or you can use the PHP function:</p>
-
-<pre>&lt;?php echo dkovotable_vote_link($thing_id, &apos;cool_things&apos;); ?&gt;</pre>
+<pre>[dkovotable action=&quot;link&quot; id=&quot;THINGID&quot;]</pre>
 
 <p>Both versions will generate a unique, one-time use link to vote on that
 thing. The group attribute/second function parameter is optional.</p>
@@ -27,15 +22,12 @@ That allow you to aggregate results for that votable. Otherwise votes will
 only count toward total votes for that Votable. Here are the shortcodes:</p>
 
 <ul>
-<li>All votes for THING_ID: <pre>[dkovotable-results id=&quot;THINGID&quot;]</pre></li>
-<li>Votes for THING_ID in the COOL_THINGS group: <pre>[dkovotable-results id=&quot;THINGID&quot; group=&quot;COOL_THINGS&quot;]</pre></li>
-<li>Votes for all things in the COOL_THINGS group: <pre>[dkovotable-results group=&quot;COOL_THINGS&quot;]</pre></li>
+<li>All votes for THING_ID: <pre>[dkovotable action=&quot;count&quot; id=&quot;THINGID&quot;]</pre></li>
 </ul>
 
 <p>Or use the function forms:</p>
 
 <pre>&lt;?php
-echo dkovotable_results($thing_id);
-echo dkovotable_results($thing_id, &apos;COOL_THINGS&apos;);
-echo dkovotable_results(null, &apos;COOL_THINGS&apos;);
+echo dkovotable_results('votable', $thing_id);
+echo dkovotable_results('group', &apos;COOL_THINGS&apos;);
 ?&gt;</pre>
