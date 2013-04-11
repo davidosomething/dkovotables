@@ -729,7 +729,7 @@ class DKOVotables
       self::SLUG,
       array($this, 'admin_page'),
       'http://s.gravatar.com/avatar/dcf949116994998753bd171a74f20fe9?s=16',
-      100.001
+      '500.00001'
     );
     add_action('admin_print_styles-' . $this->screen_id, array($this, 'admin_enqueue_styles'));
   }
