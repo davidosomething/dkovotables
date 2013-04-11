@@ -63,6 +63,12 @@ class DKOVotables
     add_action('plugins_loaded', array($this, 'ensure_version'));
 
     // Backend
+    wp_register_script(
+      self::SLUG,
+      plugins_url('assets/js/script.js', __FILE__),
+      array('jquery'),
+      self::VERSION
+    );
     add_action('init', array($this, 'handle_forms'));
 
     // Add admin page and help
@@ -659,13 +665,8 @@ class DKOVotables
    *
    * @return void
    */
-  public function enqueue_script() {
-    wp_enqueue_script(
-      self::SLUG,
-      plugins_url('assets/js/script.js', __FILE__),
-      array('jquery'),
-      self::VERSION
-    );
+  public static function enqueue_script() {
+    wp_enqueue_script(self::SLUG);
     wp_localize_script(
       self::SLUG,
       self::SLUG,
@@ -739,7 +740,7 @@ class DKOVotables
       return;
     }
     // enqueue the main JS
-    $this->enqueue_script();
+    static::enqueue_script();
 
     // enqueue the admin JS which relies on the main JS
     wp_enqueue_script(
@@ -813,7 +814,7 @@ class DKOVotables
    * @return void
    */
   public function shortcode($atts, $content = null) {
-    $this->enqueue_script();
+    static::enqueue_script();
 
     extract(shortcode_atts(array(
       'id'          => 0,
