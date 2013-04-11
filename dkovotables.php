@@ -312,22 +312,21 @@ class DKOVotables
    * @param mixed $id
    * @return null|object
    */
-  public function get_group($by = 'id', $id = 0) {
-    if ($by === 'id' && is_integer($id)) {
-      $group_ids = wp_list_pluck($this->get_groups(), 'id');
-      $group_index = array_search($id, $group_ids, false);
+  public function get_group($by = 'id', $term = 0) {
+    if (!in_array($by, array('id', 'name'))) {
+      return null;
     }
-    elseif ($by === 'name') {
-      $group_names = wp_list_pluck($this->get_groups(), 'name');
-      $group_index = array_search($name, $group_names, false);
-    }
-    else {
+
+    if (!$term) {
       return (object)array(
         'id'          => 0,
         'name'        => 'ALL',
         'description' => 'Votables from ALL groups'
       );
     }
+
+    $plucked_groups = wp_list_pluck($this->get_groups(), $by);
+    $group_index = array_search($term, $plucked_groups, false);
 
     // return null if group not found
     if ($group_index === false) {
