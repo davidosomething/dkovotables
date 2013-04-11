@@ -64,6 +64,7 @@ class DKOVotables
 
     // Backend
     add_action('init', array($this, 'handle_forms'));
+    add_action('init', array($this, 'register_scripts'));
 
     // Add admin page and help
     add_action('admin_menu', array($this, 'add_root_menu'));
@@ -388,6 +389,21 @@ class DKOVotables
   }
 
   /**
+   * register_scripts
+   * Register script for use later
+   *
+   * @return void
+   */
+  public function register_scripts() {
+    wp_register_script(
+      self::SLUG,
+      plugins_url('assets/js/script.js', __FILE__),
+      array('jquery'),
+      self::VERSION
+    );
+  }
+
+  /**
    * create_votable
    * Using POST data, create a new vote record and associate it to a group as
    * a votable
@@ -660,12 +676,6 @@ class DKOVotables
    * @return void
    */
   public static function enqueue_script() {
-    wp_register_script(
-      self::SLUG,
-      plugins_url('assets/js/script.js', __FILE__),
-      array('jquery'),
-      self::VERSION
-    );
     wp_enqueue_script(self::SLUG);
     wp_localize_script(
       self::SLUG,
