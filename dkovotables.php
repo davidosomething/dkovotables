@@ -312,8 +312,16 @@ class DKOVotables
    * @param mixed $id
    * @return null|object
    */
-  public function get_group($id) {
-    if (empty($id)) {
+  public function get_group($by = 'id', $id = 0) {
+    if ($by === 'id' && is_integer($id)) {
+      $group_ids = wp_list_pluck($this->get_groups(), 'id');
+      $group_index = array_search($id, $group_ids, false);
+    }
+    elseif ($by === 'name') {
+      $group_names = wp_list_pluck($this->get_groups(), 'name');
+      $group_index = array_search($name, $group_names, false);
+    }
+    else {
       return (object)array(
         'id'          => 0,
         'name'        => 'ALL',
@@ -321,40 +329,16 @@ class DKOVotables
       );
     }
 
-    $group_ids = wp_list_pluck($this->get_groups(), 'id');
-    $group_index = array_search($id, $group_ids, false);
-
     // return null if group not found
     if ($group_index === false) {
       return null;
     }
 
     // return the found group
-    return $this->get_groups()[$group_index];
-  }
+    $groups = $this->get_groups();
+    if (is_array($groups)) return $groups[$group_index];
 
-  /**
-   * get_group_by_name
-   * Return the ALL group or some cached object from the groups_cache
-   *
-   * @param mixed $id
-   * @return bool|null|object false if no name, null if not found, object if found
-   */
-  public function get_group_by_name($name) {
-    if (empty($name)) {
-      return false;
-    }
-
-    $group_names = wp_list_pluck($this->get_groups(), 'name');
-    $group_index = array_search($name, $group_names, false);
-
-    // return null if group not found
-    if ($group_index === false) {
-      return null;
-    }
-
-    // return the found group
-    return $this->get_groups()[$group_index];
+    return null;
   }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -473,7 +457,7 @@ class DKOVotables
       return;
     }
 
-    $group = $this->get_group($group_id);
+    $group = $this->get_group('id', $group_id);
     $this->admin_messages[] = array(
       'is_error'  => false,
       'content'   => '<p>Successfully created a new votable in group <em>' . $group->name . '</em>.</p>'
@@ -729,7 +713,7 @@ class DKOVotables
       self::SLUG,
       array($this, 'admin_page'),
       'http://s.gravatar.com/avatar/dcf949116994998753bd171a74f20fe9?s=16',
-      100.001
+      '500.00001'
     );
     add_action('admin_print_styles-' . $this->screen_id, array($this, 'admin_enqueue_styles'));
   }

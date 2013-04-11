@@ -6,14 +6,14 @@
   </p>
   <table class="form-table">
     <tr valign="top">
-      <th scope="row"><label for="dkovotables-create-description">Description</label></th>
+      <th scope="row"><label for="dkovotables-create-description">Description<span class="required">*</span></label></th>
       <td><textarea id="dkovotables-create-description" name="create_votable_description" rows="2" cols="30" required></textarea></td>
     </tr>
     <tr valign="top">
       <th scope="row"><label for="dkovotables-create-group">Group</label></th>
       <td><select id="dkovotables-create-group" name="create_votable_group">
+          <option value="">ALL</option>
           <?php foreach ($dkovotables->get_groups() as $group): ?>
-            <option value="">ALL</option>
             <option value="<?php echo $group->id; ?>"><?php echo $group->name; ?></option>
           <?php endforeach; ?>
       </select></td>

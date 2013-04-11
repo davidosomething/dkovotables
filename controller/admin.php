@@ -14,7 +14,7 @@ $data['filter']['sort'] = empty($_POST['filter_sort']) ? 'id' : $_POST['filter_s
 
 // parse vars
 $group_id = empty($_POST['filter_group']) ? 0 : (int)$_POST['filter_group'];
-$data['filter']['group'] = $dkovotables->get_group($group_id);
+$data['filter']['group'] = $dkovotables->get_group('id', $group_id);
 
 $data['filter']['limit'] = empty($_POST['filter_limit']) ? 100 : (int)$_POST['filter_limit'];
 if ($data['filter']['limit'] < 1) {
