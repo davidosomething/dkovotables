@@ -60,8 +60,16 @@ module.exports = function (grunt) {
     copy: {
       prod: {
         files: {
-          'release/assets/': 'assets/**',
-          'release/style.css': 'assets/css/style-prod.css'
+          'release/': [
+            'assets/**',
+            'controller/**',
+            'model/**',
+            'markdown/**',
+            'view/**',
+            '*.md',
+            '*.php',
+            '*.txt'
+          ]
         }
       }
     },
