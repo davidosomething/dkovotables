@@ -63,12 +63,6 @@ class DKOVotables
     add_action('plugins_loaded', array($this, 'ensure_version'));
 
     // Backend
-    wp_register_script(
-      self::SLUG,
-      plugins_url('assets/js/script.js', __FILE__),
-      array('jquery'),
-      self::VERSION
-    );
     add_action('init', array($this, 'handle_forms'));
 
     // Add admin page and help
@@ -666,6 +660,12 @@ class DKOVotables
    * @return void
    */
   public static function enqueue_script() {
+    wp_register_script(
+      self::SLUG,
+      plugins_url('assets/js/script.js', __FILE__),
+      array('jquery'),
+      self::VERSION
+    );
     wp_enqueue_script(self::SLUG);
     wp_localize_script(
       self::SLUG,
