@@ -1,10 +1,12 @@
 /*global module:false*/
 module.exports = function (grunt) {
+  "use strict";
 
   // Project configuration.
   grunt.initConfig({
     pkg: '<json:package.json>',
 
+// JSHINT //////////////////////////////////////////////////////////////////////
     jshint: {
       options: {
         curly:    true,
@@ -17,11 +19,18 @@ module.exports = function (grunt) {
         sub:      true,
         undef:    true
       },
-      all: [
-        'Gruntfile.js',
-        'assets/js/*.js'
+      gruntfile: [ 'Gruntfile.js' ],
+      project:   [ 'assets/js/*.js' ]
+    },
+
+// CLEAN ///////////////////////////////////////////////////////////////////////
+    clean: {
+      prod: [
+        'release/'
       ]
     },
+
+// UGLIFY //////////////////////////////////////////////////////////////////////
     uglify: {
       /*
       ios: {
@@ -35,6 +44,7 @@ module.exports = function (grunt) {
      */
     },
 
+// SASS ////////////////////////////////////////////////////////////////////////
     sass: {
       prod: {
         options: {
@@ -46,10 +56,28 @@ module.exports = function (grunt) {
       }
     },
 
+// COPY ////////////////////////////////////////////////////////////////////////
+    copy: {
+      prod: {
+        files: {
+          'release/assets/': 'assets/**',
+          'release/style.css': 'assets/css/style-prod.css'
+        }
+      }
+    },
+
+// WATCH ///////////////////////////////////////////////////////////////////////
     watch: {
+      gruntfile: {
+        files: 'Gruntfile.js',
+        tasks: ['jshint:gruntfile'],
+        options: {
+          nocase: true
+        }
+      },
       scripts: {
         files: ['assets/js/*.js'],
-        tasks: ['jshint:all']
+        tasks: ['jshint:project']
       },
       sass: {
         files: ['assets/sass/**/*.*'],
@@ -58,11 +86,20 @@ module.exports = function (grunt) {
     }
   });
 
+// LOAD TASKS //////////////////////////////////////////////////////////////////
+  grunt.loadNpmTasks('grunt-contrib-clean');
+  grunt.loadNpmTasks('grunt-contrib-copy');
   grunt.loadNpmTasks('grunt-contrib-jshint');
-  grunt.loadNpmTasks('grunt-contrib-uglify');
   grunt.loadNpmTasks('grunt-contrib-sass');
+  grunt.loadNpmTasks('grunt-contrib-uglify');
   grunt.loadNpmTasks('grunt-contrib-watch');
 
+// REGISTER TASKS //////////////////////////////////////////////////////////////
+  grunt.registerTask('release', [
+    'sass:prod',
+    'clean:prod',
+    'copy'
+  ]);
   grunt.registerTask('test', ['jshint']);
   grunt.registerTask('compile', ['sass:prod']);
   grunt.registerTask('default', ['watch']);
