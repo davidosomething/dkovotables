@@ -134,16 +134,22 @@
      */
     methods.clickedVotable = function (e) {
       var votable = this;
-      var $this;
-      var votableId;
+      var $this = $(this);
       var onClick = $.Callbacks();
+      var data = {
+        action: 'dkovotable_vote'
+      };
+
       e.preventDefault();
 
-      $this = $(this);
-
-      votableId = $this.data('votable-id');
-      if (!votableId) {
-        console.error('votable missing id');
+      if ($this.data('votable-id')) {
+        data.votable_id = $this.data('votable-id');
+      }
+      else if ($this.data('votable-group-name')) {
+        data.group_name = $this.data('votable-group-name');
+      }
+      else {
+        console.error('Missing data-votable-id or data-votable-group-name.');
         return;
       }
 
@@ -156,16 +162,13 @@
       }
       // custom callbacks
       onClick.add(options.onClick); // custom onClick callbacks
-      onClick.fire(votable);
+      onClick.fireWith(votable);
 
       // AJAX vote
       var vote = $.ajax({
         url:  ajaxurl,
         type: 'POST',
-        data: {
-          action: 'dkovotable_vote',
-          votable_id: votableId
-        }
+        data: data
       });
 
       // custom callbacks
@@ -206,7 +209,7 @@
 
       // custom callbacks
       onDone.add(options.onDone); // custom onClick callbacks
-      onDone.fire(votable);
+      onDone.fireWith(votable);
     };
 
     /**
@@ -222,7 +225,7 @@
 
       // custom callbacks
       onAfter.add(options.onAfter); // custom onClick callbacks
-      onAfter.fire(votable);
+      onAfter.fireWith(votable);
     };
 
     /**

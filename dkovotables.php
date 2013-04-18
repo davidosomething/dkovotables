@@ -8,8 +8,10 @@
  * Author URI:  http://www.davidosomething.com/
  */
 
+if (!class_exists('DKOWPAdmin')) require_once 'lib/admin.php';
+
 // singleton!
-class DKOVotables
+class DKOVotables extends DKOWPAdmin
 {
 
   const VERSION       = '0.1.5';
@@ -351,6 +353,10 @@ class DKOVotables
    * @return void
    */
   public function handle_forms() {
+    if (empty($_GET['page']) || $_GET['page'] !== DKOVotables::SLUG) {
+      return;
+    }
+
     if (!empty($_POST[DKOVotables::SLUG])) {
       if (wp_verify_nonce($_POST[DKOVotables::SLUG], 'create_votable')) {
         $this->create_votable();
@@ -688,131 +694,6 @@ class DKOVotables
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// Admin ///////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
-  /**
-   * Display messages in the CMS
-   */
-  public function admin_notices() {
-    if (!count($this->admin_messages)) {
-      return;
-    }
-    foreach ($this->admin_messages as $message) {
-      if (array_key_exists('is_error', $message) && $message['is_error']) {
-        echo '<div class="error">';
-      }
-      else {
-        echo '<div class="updated">';
-      }
-      echo $message['content'];
-      echo '</div>';
-    }
-  }
-
-  /**
-   * add_root_menu
-   *
-   * @return void
-   */
-  public function add_root_menu() {
-    add_menu_page(
-      'Votables', // title tags
-      'Votables', // on screen
-      'manage_options',
-      self::SLUG,
-      array($this, 'admin_page'),
-      'http://s.gravatar.com/avatar/dcf949116994998753bd171a74f20fe9?s=16',
-      '500.00001'
-    );
-    add_action('admin_print_styles-' . $this->screen_id, array($this, 'admin_enqueue_styles'));
-  }
-
-  /**
-   * admin_page
-   * Controller for the admin page
-   *
-   * @return void
-   */
-  public function admin_page() {
-    include 'controller/admin.php';
-  }
-
-  /**
-   * admin_enqueue_scripts
-   * Enqueue the admin side JS
-   *
-   * @access public
-   * @return void
-   */
-  public function admin_enqueue_scripts($screen_id) {
-    if ($screen_id !== self::SCREEN_ID) {
-      return;
-    }
-    // enqueue the main JS
-    static::enqueue_script();
-
-    // enqueue the admin JS which relies on the main JS
-    wp_enqueue_script(
-      self::SLUG . '-admin',
-      plugins_url('/assets/js/admin.js', __FILE__),
-      array('jquery', self::SLUG),
-      self::VERSION,
-      true
-    );
-  }
-
-  /**
-   * admin_enqueue_styles
-   *
-   * @access public
-   * @return void
-   */
-  public function admin_enqueue_styles() {
-    wp_enqueue_style(
-      self::SLUG . '-admin',
-      plugins_url('/assets/css/admin.css', __FILE__)
-    );
-  }
-
-  /**
-   * plugin_help
-   * Sets $contextual_help value if on the Votables admin screen.
-   *
-   * @param string $contextual_help
-   * @param string $screen_id
-   * @param mixed $screen
-   * @return void
-   */
-  public function plugin_help($contextual_help, $screen_id, $screen) {
-    if ($screen_id !== $this->screen_id) {
-      return;
-    }
-    ob_start();
-    include plugin_dir_path(__FILE__) . 'view/contextual_help.php';
-    $contextual_help = ob_get_contents();
-    ob_end_clean();
-    return $contextual_help;
-  }
-
-  /**
-   * admin_link
-   * Create a link to perform some admin action
-   *
-   * @param int $votable_id
-   * @return string
-   */
-  protected function admin_link($action, $votable_id) {
-    $query = build_query(array(
-      'votable_id' => $votable_id
-    ));
-    $url = $this->main_page . '&amp;' . $query;
-    $nonce_action = $action . '_votable_' . $votable_id;
-    return wp_nonce_url($url, $nonce_action);
-  }
-
-
-////////////////////////////////////////////////////////////////////////////////
 // Frontend ////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -914,14 +795,36 @@ class DKOVotables
    * @return void
    */
   public function vote() {
-    global $wpdb; // this is how you get access to the database
-
     // sanitize POST data
-    $votable_id = (int)$_POST['votable_id'];
-    if (!$votable_id) {
-      $this->output_json(array('error' => 'Missing ID parameter.'));
+    if (!empty($_POST['votable_id'])) {
+      $votable_id = (int)$_POST['votable_id'];
+      if (!$votable_id) {
+        $this->output_json(array('error' => 'Missing votable id.'));
+        die();
+      }
+      $this->vote_single($votable_id);
+    }
+    elseif (!empty($_POST['group_name'])) {
+      $group_name = $_POST['group_name'];
+      if (!$group_name) {
+        $this->output_json(array('error' => 'Missing votable group name.'));
+        die();
+      }
+      $group = $this->get_group('name', $group_name);
+      if (!$group) {
+        $this->output_json(array('error' => 'Group name not found.'));
+        die();
+      }
+      $this->vote_group($group);
+    }
+    else {
+      $this->output_json(array('error' => 'Missing votable id or group name.'));
       die();
     }
+  }
+
+  private function vote_single($votable_id) {
+    global $wpdb; // this is how you get access to the database
 
     // get current votes
     $sql = $wpdb->prepare("
@@ -972,6 +875,61 @@ class DKOVotables
     ));
     die(); // this is required to return a proper result
   }
+
+  private function vote_group($group) {
+    global $wpdb; // this is how you get access to the database
+
+    // get current votes
+    $sql = $wpdb->prepare("
+      SELECT
+        votables.votes_id AS votes_id,
+        groups.name AS group_name,
+        votes.votes AS votes
+        FROM {$this->votables_table_name} AS votables
+      LEFT JOIN {$this->groups_table_name} AS groups ON votables.group_id = groups.id
+      LEFT JOIN {$this->votes_table_name} AS votes ON votables.votes_id = votes.id
+      WHERE votables.group_id = %d
+      ",
+      $group->id
+    );
+    $results = $wpdb->get_results($sql);
+
+    if (!$results) {
+      $this->output_json(array('error' => 'No results found for group.'));
+      die();
+    }
+
+    foreach ($results as $vote) {
+      $new_votes = $vote->votes + 1;
+
+      // increment votes
+      $update = $wpdb->update(
+        $this->votes_table_name,
+        array('votes' => $new_votes),
+        array('id' => $vote->votes_id),
+        array('%d'),
+        array('%d')
+      );
+
+      if ($update === false) {
+        $this->output_json(array('error' => 'Couldn\'t increment votes for vote with id ' . $result->votes_id));
+        die();
+      }
+
+      if ($update === 0) {
+        $this->output_json(array('error' => 'Nothing was updated trying to increment votes for vote with id ' . $result->votes_id));
+        die();
+      }
+    }
+
+    $this->output_json(array(
+      'success'       => true,
+      'group_name'    => $group->name,
+      'rows_updated'  => count($results)
+    ));
+    die(); // this is required to return a proper result
+  }
+
 
 }
 $dkovotables = DKOVotables::get_instance();
