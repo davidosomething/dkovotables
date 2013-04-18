@@ -1,6 +1,6 @@
 <h3>Create a new Group</h3>
 <form method="POST" action="<?php echo $dkovotables->main_page; ?>">
-  <?php wp_nonce_field('create_group', $dkovotables::SLUG); ?>
+  <?php wp_nonce_field('create_group', $dkovotables->slug); ?>
   <p class="description">
     Create a new group.
   </p>

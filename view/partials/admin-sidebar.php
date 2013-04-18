@@ -2,7 +2,7 @@
   <h3>Plugin info</h3>
   <dl>
     <dt>Installed version:</dt>
-    <dd><?php echo $dkovotables::VERSION; ?></dd>
+    <dd><?php echo $dkovotables->version; ?></dd>
 
     <dt>Support contact:</dt>
     <dd><a href="http://github.com/davidosomething/dkovotables/issues">Report issues on GitHub</a></dd>

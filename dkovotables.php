@@ -13,30 +13,33 @@ if (!class_exists('DKOWPAdmin')) require_once 'lib/admin.php';
 // singleton!
 class DKOVotables extends DKOWPAdmin
 {
-
-  const VERSION       = '0.1.5';
-  const SLUG          = 'DKOVotables';
-  const DIRNAME       = 'dkovotables';
-  const BASEPATH      = __DIR__;
-  const SCREEN_ID     = 'toplevel_page_DKOVotables';
+  // plugin meta
+  protected $version      = '0.1.5';
+  protected $plugin_file  = __FILE__;
+  protected $slug         = 'DKOVotables';
 
   // Singleton instance
-  private static $instance = null;
+  public static $instance = null;
 
   // Options
-  public $default_options = array(
+  protected $default_options = array(
     'version' => '0.0.0',
   );
 
   // Admin vars
-  private $screen_id; // check user on correct screen with this
-  private $main_page; // submit forms here
-  private $admin_messages = array();
+  protected $screen_id; // check user on correct screen with this
+  protected $main_page; // submit forms here
+  protected $admin_messages = array();
+  // menu
+  protected $menu_title     = 'Votables';
+  protected $menu_access    = 'manage_options';
+  protected $menu_icon      = 'http://s.gravatar.com/avatar/dcf949116994998753bd171a74f20fe9?s=16';
+  protected $menu_position  = '500.00001';
 
   // Database vars
-  public $votes_table_name;
-  public $groups_table_name;
-  public $votables_table_name;
+  protected $votes_table_name;
+  protected $groups_table_name;
+  protected $votables_table_name;
 
   public static $votes_cache = array();
   public static $group_votes_cache = array();
@@ -51,8 +54,8 @@ class DKOVotables extends DKOWPAdmin
     self::$instance = $this;
 
     // initialize vars
-    $this->screen_id = 'toplevel_page_' . self::SLUG;
-    $this->main_page = admin_url('admin.php?page=' . self::SLUG);
+    $this->screen_id = 'toplevel_page_' . $this->slug;
+    $this->main_page = admin_url('admin.php?page=' . $this->slug);
     $this->votes_table_name = $wpdb->prefix . 'dkovotable_votes';
     $this->groups_table_name = $wpdb->prefix . 'dkovotable_groups';
     $this->votables_table_name = $wpdb->prefix . 'dkovotable_votes_to_groups';
@@ -124,7 +127,7 @@ class DKOVotables extends DKOWPAdmin
    */
   public function ensure_version() {
     $installed_version = $this->options['version'];
-    if ($installed_version !== self::VERSION) {
+    if ($installed_version !== $this->version) {
       $this->_update_database();
     }
   }
@@ -173,7 +176,7 @@ class DKOVotables extends DKOWPAdmin
     );";
     dbDelta($sql);
 
-    $this->options['version'] = self::VERSION;
+    $this->options['version'] = $this->version;
     update_option('dkovotables_options', $this->options);
   }
 
@@ -353,15 +356,15 @@ class DKOVotables extends DKOWPAdmin
    * @return void
    */
   public function handle_forms() {
-    if (empty($_GET['page']) || $_GET['page'] !== DKOVotables::SLUG) {
+    if (empty($_GET['page']) || $_GET['page'] !== $this->slug) {
       return;
     }
 
-    if (!empty($_POST[DKOVotables::SLUG])) {
-      if (wp_verify_nonce($_POST[DKOVotables::SLUG], 'create_votable')) {
+    if (!empty($_POST[$this->slug])) {
+      if (wp_verify_nonce($_POST[$this->slug], 'create_votable')) {
         $this->create_votable();
       }
-      elseif (wp_verify_nonce($_POST[DKOVotables::SLUG], 'create_group')) {
+      elseif (wp_verify_nonce($_POST[$this->slug], 'create_group')) {
         $this->create_group();
       }
       else {
@@ -402,10 +405,10 @@ class DKOVotables extends DKOWPAdmin
    */
   public function register_scripts() {
     wp_register_script(
-      self::SLUG,
+      $this->slug,
       plugins_url('assets/js/script.js', __FILE__),
       array('jquery'),
-      self::VERSION
+      $this->version
     );
   }
 
@@ -681,11 +684,11 @@ class DKOVotables extends DKOWPAdmin
    *
    * @return void
    */
-  public static function enqueue_script() {
-    wp_enqueue_script(self::SLUG);
+  public function enqueue_script() {
+    wp_enqueue_script($this->slug);
     wp_localize_script(
-      self::SLUG,
-      self::SLUG,
+      $this->slug,
+      $this->slug,
       array(
         'ajaxurl' => admin_url('admin-ajax.php')
       )
@@ -705,7 +708,7 @@ class DKOVotables extends DKOWPAdmin
    * @return void
    */
   public function shortcode($atts, $content = null) {
-    static::enqueue_script();
+    $this->enqueue_script();
 
     extract(shortcode_atts(array(
       'id'          => 0,

@@ -25,7 +25,7 @@ if ($data['filter']['limit'] > 500) {
 }
 
 // load model, populates $data
-include $dkovotables::BASEPATH . '/model/admin.php';
+include plugin_dir_path($this->plugin_file) . '/model/admin.php';
 
 // load view
-include $dkovotables::BASEPATH . '/view/admin.php';
+include plugin_dir_path($this->plugin_file) . '/view/admin.php';

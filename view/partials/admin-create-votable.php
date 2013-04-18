@@ -1,6 +1,6 @@
 <h3>Create a new Votable</h3>
 <form method="POST" action="<?php echo $dkovotables->main_page; ?>">
-  <?php wp_nonce_field('create_votable', $dkovotables::SLUG); ?>
+  <?php wp_nonce_field('create_votable', $dkovotables->slug); ?>
   <p class="description">
     Create a new votable.
   </p>
