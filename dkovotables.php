@@ -684,11 +684,11 @@ class DKOVotables extends DKOWPAdmin
    *
    * @return void
    */
-  public function enqueue_script() {
-    wp_enqueue_script($this->slug);
+  public static function enqueue_script() {
+    wp_enqueue_script(DKOVotables::get_instance()->slug);
     wp_localize_script(
-      $this->slug,
-      $this->slug,
+      DKOVotables::get_instance()->slug,
+      DKOVotables::get_instance()->slug,
       array(
         'ajaxurl' => admin_url('admin-ajax.php')
       )
