@@ -276,6 +276,12 @@
     return this.each(function () {
       var $this = $(this);
 
+      // already a votable
+      if (typeof $this.isDKOVotable !== 'undefined') {
+        return;
+      }
+      $this.isDKOVotable = true;
+
       var action = $this.data('action');
       if (!action) {
         action = 'count';

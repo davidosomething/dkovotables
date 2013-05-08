@@ -251,7 +251,10 @@ class DKOVotables extends DKOWPAdmin
       $result = $wpdb->get_row($query);
       // @TODO log instead of output
       if (!$result) {
-        echo '<p class="error">Error getting votes for ', htmlspecialchars($votable_id), '</p>';
+        echo '<p class="error">Error getting votes for votable with id ', htmlspecialchars($votable_id), '</p>';
+        echo '<pre>';
+        $wpdb->print_error();
+        echo '</pre>';
       }
       $this->cache_votes(array($result));
       return $result->votes;
